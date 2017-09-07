@@ -1,63 +1,80 @@
+var cellFns = [
+    // Circles
+    function (g, pos) {
+        return g.circle(this.size - 2).stroke('black').fill('none').cx(pos.cx).cy(pos.cy);
+    },
+
+    // Little squares
+    function (g, pos) {
+        var dim = this.size / 2;
+        return g.rect(dim, dim).stroke('black').cx(pos.cx).cy(pos.cy);
+    },
+
+    // Checkerboard
+    function (g, pos) {
+        if (this._rotation === undefined)
+            this._rotation = Math.random() > .5 ? 0 : (Math.random() * 90);
+        var isEmpty = pos.j % 2 === 0;
+        if (pos.i % 2 === 0)
+            isEmpty = !isEmpty;
+        if (isEmpty)
+            return null;
+        var cell = g.rect(this.size, this.size).stroke('black').cx(pos.cx).cy(pos.cy);
+        if (this._rotation)
+            cell.rotate(this._rotation);
+        return cell;
+    }
+];
+
 main();
 
 function main() {
     var draw = SVG('drawing');
 
-    gridBoxes(draw);
+    var slots = gridBoxes(draw);
+    for (var i = 0; i < slots.length; ++i) {
+        patternGrid(draw, {
+            fence: slots[i].fill('none').stroke('black'),
+            cell: randomCell()
+        }).back();
+    }
 
-    /*
-     patternGrid(draw, {
-     size: 20,
-     fence: draw.rect(200, 200).fill('none').stroke('black'),
-     cellFn: function (g, cell, self) {
-     return g.circle(self.size - 2).stroke('black').fill('none');
-     }
-     }).move(10, 10);
+    // var g = draw.group().move(100, 100);
+    // for (var i = 10; i-- > 0;)
+    //     g.rect(50, 50).fill('#f09').rotate(45).move(i * 60, 100);
+}
 
-
-     patternGrid(draw, {
-     size: 20,
-     fence: draw.rect(200, 200).fill('none').stroke('black'),
-     cellFn: function (g, cell, self) {
-     var dim = self.size / 2;
-     return g.rect(dim, dim).stroke('black');
-     }
-     }).move(220, 10);
-
-
-     patternGrid(draw, {
-     size: 20,
-     offsets: [.5, .5],
-     fence: draw.rect(200, 200).fill('none').stroke('black'),
-     cellFn: function (g, cell, self) {
-     var isEmpty = cell.j % 2 === 0;
-     if (cell.i % 2 === 0)
-     isEmpty = !isEmpty;
-     var dim = self.size;
-     return isEmpty ? null : g.rect(dim, dim).stroke('black');
-     }
-     }).move(430, 10);
-     */
+function randomCell() {
+    return {
+        size: 15 + Math.round(Math.random() * 10),
+        offsets: [Math.random() - .5, Math.random() - .5],
+        fn: cellFns[Math.floor(Math.random() * cellFns.length)]
+    };
 }
 
 function patternGrid(root, props) {
-    var pattern = root.group().add(props.fence);
-    var cells = pattern.group().clipWith(props.fence.clone());
+    var fence = props.fence;
+    var pos = fence.rbox();
+    var pattern = root.group().move(pos.x, pos.y).add(fence.move(0, 0));
+    var cells = pattern.group().clipWith(fence.clone());
 
-    var rowCount = props.fence.height() / props.size + 1,
-        colCount = props.fence.width() / props.size + 1;
+    var rowCount = fence.height() / props.cell.size + 1,
+        colCount = fence.width() / props.cell.size + 1;
 
     var iStart = 0, jStart = 0;
-    if (props.offsets) {
-        iStart = -props.offsets[0];
-        jStart = -props.offsets[1];
+    if (props.cell.offsets) {
+        iStart = -props.cell.offsets[0];
+        jStart = -props.cell.offsets[1];
     }
 
-    for (var i = iStart; i < colCount; i++) {
-        for (var j = jStart; j < rowCount; j++) {
-            var cell = props.cellFn(cells, {i: i, j: j}, props);
-            if (cell !== null)
-                cell.center(i * props.size, j * props.size);
+    for (var i = 0; i < colCount; i++) {
+        for (var j = 0; j < rowCount; j++) {
+            var cell = props.cell.fn.call(props.cell, cells, {
+                i: i,
+                j: j,
+                cx: iStart + i * props.cell.size,
+                cy: jStart + j * props.cell.size
+            });
         }
     }
 
@@ -69,34 +86,49 @@ function gridBoxes(svg) {
     var rbox = svg.rbox();
     var w = rbox.width, h = rbox.height;
 
-    var latitudes = [
-        [.2, .5],
-        [.6, .6],
-        [.9, .8]
-    ], latCount = latitudes.length;
+    var debugMarks = false, latCount = 3, lonCount = 4;
 
-    var longitudes = [
-        [.3, .2],
-        [.4, .5],
-        [.7, .9]
-    ], lonCount = longitudes.length;
+    var leftEdge = [];
+    var rightEdge = [];
+    var topEdge = [];
+    var botEdge = [];
+
+    for (var i = 0; i < latCount; ++i) {
+        leftEdge.push(Math.random());
+        rightEdge.push(Math.random());
+    }
+
+    for (var j = 0; j < lonCount; ++j) {
+        topEdge.push(Math.random());
+        botEdge.push(Math.random());
+    }
+
+    leftEdge.sort();
+    topEdge.sort();
+    rightEdge.sort();
+    botEdge.sort();
 
     var intersections = [];
 
     // Intersection points using expression from following wikipedia section:
     // https://en.wikipedia.org/wiki/Line%E2%80%93line_intersection#Given_two_points_on_each_line
-    for (var i = 0; i < latCount; ++i) {
-        var x1 = 0; var y1 = (latitudes[i][0] *= h);
-        var x2 = w; var y2 = (latitudes[i][1] *= h);
-        svg.line(x1, y1, x2, y2).stroke('#f09');
-        for(var j = 0; j < lonCount; ++j) {
+    for (i = 0; i < latCount; ++i) {
+        var x1 = 0;
+        var y1 = (leftEdge[i] *= h);
+        var x2 = w;
+        var y2 = (rightEdge[i] *= h);
+        if (debugMarks)
+            svg.line(x1, y1, x2, y2).stroke('#f09');
+        for (j = 0; j < lonCount; ++j) {
             if (i === 0) {
-                longitudes[j][0] *= w;
-                longitudes[j][1] *= w;
+                topEdge[j] *= w;
+                botEdge[j] *= w;
             }
-            var x3 = longitudes[j][0]; var y3 = 0;
-            var x4 = longitudes[j][1]; var y4 = h;
-            if (i === 0)
+            var x3 = topEdge[j];
+            var y3 = 0;
+            var x4 = botEdge[j];
+            var y4 = h;
+            if (debugMarks && i === 0)
                 svg.line(x3, y3, x4, y4).stroke('#f09');
             var xp = (((x1 * y2 - x2 * y1) * (x3 - x4)) - ((x3 * y4 - x4 * y3) * (x1 - x2))) /
                 (((x1 - x2) * (y3 - y4)) - ((x3 - x4) * (y1 - y2)));
@@ -105,16 +137,12 @@ function gridBoxes(svg) {
             if (!intersections[i])
                 intersections[i] = [];
             intersections[i][j] = [xp, yp];
-            svg.circle(10).fill('#f09').center(xp, yp);
+            if (debugMarks)
+                svg.circle(10).fill('#f09').center(xp, yp);
         }
     }
 
-    /*
-    svg.polygon([
-        [0, 0], [0, latitudes[0][0]], intersections[0][0], [longitudes[0][0], 0]])
-        .back();
-        */
-
+    var polygons = [];
     for (i = 0; i <= latCount; ++i) {
         for (j = 0; j <= lonCount; ++j) {
             var topLeft = [], topRight = [], botLeft = [], botRight = [];
@@ -122,9 +150,9 @@ function gridBoxes(svg) {
             if (i === 0 && j === 0) {
                 topLeft = [0, 0];
             } else if (i === 0) {
-                topLeft = [longitudes[j - 1][0], 0];
+                topLeft = [topEdge[j - 1], 0];
             } else if (j === 0) {
-                topLeft = [0, latitudes[i - 1][0]];
+                topLeft = [0, leftEdge[i - 1]];
             } else {
                 topLeft = intersections[i - 1][j - 1];
             }
@@ -132,9 +160,9 @@ function gridBoxes(svg) {
             if (i === 0 && j === lonCount) {
                 topRight = [w, 0];
             } else if (i === 0) {
-                topRight = [longitudes[j][0], 0];
+                topRight = [topEdge[j], 0];
             } else if (j === lonCount) {
-                topRight = [w, latitudes[i - 1][1]];
+                topRight = [w, rightEdge[i - 1]];
             } else {
                 topRight = intersections[i - 1][j];
             }
@@ -142,9 +170,9 @@ function gridBoxes(svg) {
             if (i === latCount && j === 0) {
                 botLeft = [0, h];
             } else if (i === latCount) {
-                botLeft = [longitudes[j - 1][1], h];
+                botLeft = [botEdge[j - 1], h];
             } else if (j === 0) {
-                botLeft = [0, latitudes[i][0]];
+                botLeft = [0, leftEdge[i]];
             } else {
                 botLeft = intersections[i][j - 1];
             }
@@ -152,17 +180,19 @@ function gridBoxes(svg) {
             if (i === latCount && j === lonCount) {
                 botRight = [w, h];
             } else if (i === latCount) {
-                botRight = [longitudes[j][1], h];
+                botRight = [botEdge[j], h];
             } else if (j === lonCount) {
-                botRight = [w, latitudes[i][1]];
+                botRight = [w, rightEdge[i]];
             } else {
                 botRight = intersections[i][j];
             }
 
             var shade = Math.round(Math.random() * 150);
-            svg.polygon([topLeft, topRight, botRight, botLeft])
-                .fill({r: shade, g: shade, b: shade}).back();
-            svg.plain(i + ':' + j).stroke('white').move(topLeft[0], topLeft[1]);
+            polygons.push(svg.polygon([topLeft, topRight, botRight, botLeft]));
+            if (debugMarks)
+                svg.plain(i + ':' + j).stroke('#f09').fill('#f09').move(topLeft[0], topLeft[1]);
         }
     }
+
+    return polygons;
 }

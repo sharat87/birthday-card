@@ -1,12 +1,12 @@
 var cellFns = [
     // Circles
     function (g, pos) {
-        return g.circle(this.size - 2).stroke('black').fill('none').cx(pos.cx).cy(pos.cy);
+        return g.circle(pos.size - 2).stroke('black').fill('none').cx(pos.cx).cy(pos.cy);
     },
 
     // Little squares
     function (g, pos) {
-        var dim = this.size / 2;
+        var dim = pos.size / 2;
         return g.rect(dim, dim).stroke('black').cx(pos.cx).cy(pos.cy);
     },
 
@@ -19,37 +19,38 @@ var cellFns = [
             isEmpty = !isEmpty;
         if (isEmpty)
             return null;
-        var cell = g.rect(this.size, this.size).stroke('black').cx(pos.cx).cy(pos.cy);
+        var cell = g.rect(pos.size, pos.size).stroke('black').cx(pos.cx).cy(pos.cy);
         if (this._rotation)
             cell.rotate(this._rotation);
         return cell;
     }
 ];
 
-main();
+window.onload = main;
 
 function main() {
     var draw = SVG('drawing');
 
+    var gridFns = [patternGrid, patternSprinkle];
+
     var slots = gridBoxes(draw);
-    for (var i = 0; i < slots.length; ++i) {
-        patternGrid(draw, {
-            fence: slots[i].fill('none').stroke('black'),
-            cell: randomCell()
-        }).back();
+    for (var i = slots.length; i-- > 0;) {
+        var fence = slots[i].fill('none').stroke('black');
+        patternGrid(draw, {fence: fence}).back();
     }
+
+    /*
+    patternSprinkle(draw, {
+        fence: draw.rect(500, 200).move(50, 50).stroke('black').fill('none')
+    });*/
 
     // var g = draw.group().move(100, 100);
     // for (var i = 10; i-- > 0;)
     //     g.rect(50, 50).fill('#f09').rotate(45).move(i * 60, 100);
 }
 
-function randomCell() {
-    return {
-        size: 15 + Math.round(Math.random() * 10),
-        offsets: [Math.random() - .5, Math.random() - .5],
-        fn: cellFns[Math.floor(Math.random() * cellFns.length)]
-    };
+function randomChoice(list) {
+    return list[Math.floor(Math.random() * list.length)];
 }
 
 function patternGrid(root, props) {
@@ -58,22 +59,26 @@ function patternGrid(root, props) {
     var pattern = root.group().move(pos.x, pos.y).add(fence.move(0, 0));
     var cells = pattern.group().clipWith(fence.clone());
 
-    var rowCount = fence.height() / props.cell.size + 1,
-        colCount = fence.width() / props.cell.size + 1;
+    var fn = randomChoice(cellFns);
+    var size = 15 + Math.round(Math.random() * 10);
+    var offsets = [Math.random() - .5, Math.random() - .5];
+    var rowCount = fence.height() / size + 1,
+        colCount = fence.width() / size + 1;
 
     var iStart = 0, jStart = 0;
-    if (props.cell.offsets) {
-        iStart = -props.cell.offsets[0];
-        jStart = -props.cell.offsets[1];
+    if (offsets) {
+        iStart = -offsets[0];
+        jStart = -offsets[1];
     }
 
     for (var i = 0; i < colCount; i++) {
         for (var j = 0; j < rowCount; j++) {
-            var cell = props.cell.fn.call(props.cell, cells, {
+            fn(cells, {
+                size: size,
                 i: i,
                 j: j,
-                cx: iStart + i * props.cell.size,
-                cy: jStart + j * props.cell.size
+                cx: iStart + i * size,
+                cy: jStart + j * size
             });
         }
     }
@@ -81,10 +86,44 @@ function patternGrid(root, props) {
     return pattern;
 }
 
+function patternSprinkle(root, props) {
+    var fence = props.fence;
+    var pos = fence.rbox();
+    var pattern = root.group().move(pos.x, pos.y).add(fence.move(0, 0));
+    var dots = pattern.group().clipWith(fence);
+
+    var size = (.15 + .3 * Math.random()) * Math.min(pos.width, pos.height);
+    var shape = Math.floor(Math.random() * 2);
+    var isCycleShape = Math.random() < .6;
+    var isRandomStrokeWidth = Math.random() < .7;
+
+    var count = Math.ceil(4 * pos.width * pos.height / Math.pow(size, 2));
+    for (var i = 0; i < count; ++i) {
+        var dotSize = size + Math.random() * 20 - 10;
+        var dot = dots.group();
+        if (isCycleShape)
+            shape = (shape + 1) % 2;
+
+        if (shape === 0) {
+            dot.circle(dotSize);
+        } else if (shape === 1) {
+            dot.rect(dotSize, dotSize).rotate(Math.random() * 90);
+        }
+
+        dot.attr({
+            fill: 'white',
+            stroke: 'black',
+            'stroke-width': isRandomStrokeWidth ? Math.ceil(Math.random() * 3) : 1
+        });
+
+        dot.center(Math.random() * pos.width, Math.random() * pos.height);
+    }
+}
+
 function gridBoxes(svg) {
     window.svg = svg;
-    var rbox = svg.rbox();
-    var w = rbox.width, h = rbox.height;
+    var rBox = svg.rbox();
+    var w = rBox.width, h = rBox.height;
 
     var debugMarks = false, latCount = 3, lonCount = 4;
 
@@ -110,7 +149,7 @@ function gridBoxes(svg) {
 
     var intersections = [];
 
-    // Intersection points using expression from following wikipedia section:
+    // Intersection points using expression from following Wikipedia section:
     // https://en.wikipedia.org/wiki/Line%E2%80%93line_intersection#Given_two_points_on_each_line
     for (i = 0; i < latCount; ++i) {
         var x1 = 0;
@@ -187,7 +226,6 @@ function gridBoxes(svg) {
                 botRight = intersections[i][j];
             }
 
-            var shade = Math.round(Math.random() * 150);
             polygons.push(svg.polygon([topLeft, topRight, botRight, botLeft]));
             if (debugMarks)
                 svg.plain(i + ':' + j).stroke('#f09').fill('#f09').move(topLeft[0], topLeft[1]);

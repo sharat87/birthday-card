@@ -31,21 +31,15 @@ window.onload = main;
 function main() {
     var svg = SVG('drawing');
 
-    var gridFns = [patternGrid, patternSprinkle];
-    var slots = gridBoxes(svg);
-    for (var i = slots.length; i-- > 0;) {
-        var fence = slots[i].fill('none').stroke('black');
-        randomChoice(gridFns)(svg, {fence: fence}).back();
+    if (!localStorage.hideBg) {
+        var gridFns = [patternGrid, patternSprinkle];
+        var slots = gridBoxes(svg);
+        for (var i = slots.length; i-- > 0;) {
+            var fence = slots[i].fill('none').stroke('black');
+            randomChoice(gridFns)(svg, {fence: fence}).back();
+        }
     }
 
-    /*
-    patternSprinkle(svg, {
-        fence: svg.rect(500, 200).move(50, 50).stroke('black').fill('none')
-    });*/
-
-    // var g = svg.group().move(100, 100);
-    // for (var i = 10; i-- > 0;)
-    //     g.rect(50, 50).fill('#f09').rotate(45).move(i * 60, 100);
 }
 
 function randomChoice(list) {

@@ -29,22 +29,21 @@ var cellFns = [
 window.onload = main;
 
 function main() {
-    var draw = SVG('drawing');
+    var svg = SVG('drawing');
 
     var gridFns = [patternGrid, patternSprinkle];
-
-    var slots = gridBoxes(draw);
+    var slots = gridBoxes(svg);
     for (var i = slots.length; i-- > 0;) {
         var fence = slots[i].fill('none').stroke('black');
-        patternGrid(draw, {fence: fence}).back();
+        randomChoice(gridFns)(svg, {fence: fence}).back();
     }
 
     /*
-    patternSprinkle(draw, {
-        fence: draw.rect(500, 200).move(50, 50).stroke('black').fill('none')
+    patternSprinkle(svg, {
+        fence: svg.rect(500, 200).move(50, 50).stroke('black').fill('none')
     });*/
 
-    // var g = draw.group().move(100, 100);
+    // var g = svg.group().move(100, 100);
     // for (var i = 10; i-- > 0;)
     //     g.rect(50, 50).fill('#f09').rotate(45).move(i * 60, 100);
 }
@@ -93,13 +92,14 @@ function patternSprinkle(root, props) {
     var dots = pattern.group().clipWith(fence);
 
     var size = (.15 + .3 * Math.random()) * Math.min(pos.width, pos.height);
+    var sizeDelta = Math.min(10, size * .7);
     var shape = Math.floor(Math.random() * 2);
     var isCycleShape = Math.random() < .6;
     var isRandomStrokeWidth = Math.random() < .7;
 
     var count = Math.ceil(4 * pos.width * pos.height / Math.pow(size, 2));
     for (var i = 0; i < count; ++i) {
-        var dotSize = size + Math.random() * 20 - 10;
+        var dotSize = size + Math.random() * 2 * sizeDelta - sizeDelta;
         var dot = dots.group();
         if (isCycleShape)
             shape = (shape + 1) % 2;
@@ -118,14 +118,15 @@ function patternSprinkle(root, props) {
 
         dot.center(Math.random() * pos.width, Math.random() * pos.height);
     }
+
+    return dots;
 }
 
-function gridBoxes(svg) {
-    window.svg = svg;
+function gridBoxes(svg, doMark) {
     var rBox = svg.rbox();
     var w = rBox.width, h = rBox.height;
 
-    var debugMarks = false, latCount = 3, lonCount = 4;
+    var latCount = 3, lonCount = 4;
 
     var leftEdge = [];
     var rightEdge = [];
@@ -152,31 +153,26 @@ function gridBoxes(svg) {
     // Intersection points using expression from following Wikipedia section:
     // https://en.wikipedia.org/wiki/Line%E2%80%93line_intersection#Given_two_points_on_each_line
     for (i = 0; i < latCount; ++i) {
-        var x1 = 0;
         var y1 = (leftEdge[i] *= h);
-        var x2 = w;
         var y2 = (rightEdge[i] *= h);
-        if (debugMarks)
-            svg.line(x1, y1, x2, y2).stroke('#f09');
+        if (doMark)
+            svg.line(0, y1, w, y2).stroke('#f09');
         for (j = 0; j < lonCount; ++j) {
             if (i === 0) {
                 topEdge[j] *= w;
                 botEdge[j] *= w;
             }
             var x3 = topEdge[j];
-            var y3 = 0;
             var x4 = botEdge[j];
-            var y4 = h;
-            if (debugMarks && i === 0)
-                svg.line(x3, y3, x4, y4).stroke('#f09');
-            var xp = (((x1 * y2 - x2 * y1) * (x3 - x4)) - ((x3 * y4 - x4 * y3) * (x1 - x2))) /
-                (((x1 - x2) * (y3 - y4)) - ((x3 - x4) * (y1 - y2)));
-            var yp = (((x1 * y2 - x2 * y1) * (y3 - y4)) - ((x3 * y4 - x4 * y3) * (y1 - y2))) /
-                (((x1 - x2) * (y3 - y4)) - ((x3 - x4) * (y1 - y2)));
+            if (doMark && i === 0)
+                svg.line(x3, 0, x4, h).stroke('#f09');
+            var denominator = w * h - (x3 - x4) * (y1 - y2);
+            var xp = (h * x3 - y1 * (x3 - x4)) * w / denominator;
+            var yp = (w * y1 - x3 * (y1 - y2)) * h / denominator;
             if (!intersections[i])
                 intersections[i] = [];
             intersections[i][j] = [xp, yp];
-            if (debugMarks)
+            if (doMark)
                 svg.circle(10).fill('#f09').center(xp, yp);
         }
     }
@@ -227,7 +223,7 @@ function gridBoxes(svg) {
             }
 
             polygons.push(svg.polygon([topLeft, topRight, botRight, botLeft]));
-            if (debugMarks)
+            if (doMark)
                 svg.plain(i + ':' + j).stroke('#f09').fill('#f09').move(topLeft[0], topLeft[1]);
         }
     }

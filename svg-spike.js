@@ -40,6 +40,41 @@ function main() {
         }
     }
 
+    flower(svg, 300, 200, 50, 7, 2);
+}
+
+function flower(svg, cx, cy, r, sliceCount, petalSize) {
+    svg.circle(6).fill('#74000a').center(cx, cy);
+    var homeCircle = svg.circle(2 * r).stroke('black').fill('white').center(cx, cy).back();
+
+    var cuts = circleSliceCuts(cx, cy, r, sliceCount);
+
+    // Find target point for the petal to aim.
+    for (var i = 0; i < sliceCount; ++i) {
+        var p1 = cuts[i], p2 = cuts[(i + 1) % cuts.length];
+        var t = [cx + petalSize * (p2[1] - p1[1]), cy + petalSize * (p1[0] - p2[0])];
+
+        svg.path(['M', p1, 'Q', orthogonalPoint(p1, t, .3, 10), t]).stroke('black').fill('none');
+        svg.path(['M', p2, 'Q', orthogonalPoint(p2, t, .3, -10), t]).stroke('black').fill('none');
+    }
+}
+
+function circleSliceCuts(cx, cy, r, n) {
+    // Returns an array of points as `[[x, y], ...]` that lie on the circle `{cx, cy, r}` and
+    // cut the circle into n equal sized slices.
+    var t = 2 * Math.PI / n, cuts = [];
+    for (var i = 0; i < n; ++i)
+        cuts.push([cx + r * Math.sin(i * t), cy - r * Math.cos(i * t)]);
+    return cuts;
+}
+
+function orthogonalPoint(a, b, p, k) {
+    // Returns a point as [x, y] on the line perpendicular to the line AB, intersecting at `a + p * (b - a)`,
+    // such that it is `k` units away from the line AB.
+    var deltaX = b[0] - a[0], deltaY = b[1] - a[1];
+    var px = a[0] + p * (deltaX), py = a[1] + p * (deltaY);
+    var hyp = k ? Math.sqrt(Math.pow(deltaX, 2) + Math.pow(deltaY, 2)) : 1;
+    return [px + k * deltaY / hyp, py - k * deltaX / hyp];
 }
 
 function randomChoice(list) {

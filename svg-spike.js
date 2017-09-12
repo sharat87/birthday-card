@@ -33,30 +33,41 @@ function main() {
 
     if (!localStorage.hideBg) {
         var gridFns = [patternGrid, patternSprinkle];
-        var slots = gridBoxes(svg);
-        for (var i = slots.length; i-- > 0;) {
-            var fence = slots[i].fill('none').stroke('black');
+        var boxes = gridBoxes(svg);
+        for (var i = boxes.length; i-- > 0;) {
+            var fence = boxes[i].fill('none').stroke('black');
             randomChoice(gridFns)(svg, {fence: fence}).back();
         }
     }
 
-    flower(svg, 300, 200, 50, 7, 2);
+    flower(svg.group(), 20, 36, 12).move(300, 200);
 }
 
-function flower(svg, cx, cy, r, sliceCount, petalSize) {
-    svg.circle(6).fill('#74000a').center(cx, cy);
-    var homeCircle = svg.circle(2 * r).stroke('black').fill('white').center(cx, cy).back();
-
-    var cuts = circleSliceCuts(cx, cy, r, sliceCount);
-
+function flower(svg, r, outerRadius, sliceCount) {
+    var cuts = circleSliceCuts(0, 0, r, sliceCount);
+    var sideLength = 2 * r * Math.sin(Math.PI / sliceCount),
+        factor = outerRadius / sideLength;
+    var petalPath = ['M', cuts[0]];
     // Find target point for the petal to aim.
     for (var i = 0; i < sliceCount; ++i) {
         var p1 = cuts[i], p2 = cuts[(i + 1) % cuts.length];
-        var t = [cx + petalSize * (p2[1] - p1[1]), cy + petalSize * (p1[0] - p2[0])];
+        var t = [factor * (p2[1] - p1[1]), factor * (p1[0] - p2[0])];
 
-        svg.path(['M', p1, 'Q', orthogonalPoint(p1, t, .3, 10), t]).stroke('black').fill('none');
-        svg.path(['M', p2, 'Q', orthogonalPoint(p2, t, .3, -10), t]).stroke('black').fill('none');
+        petalPath.push(
+            'Q', orthogonalPoint(p1, t, .3, 4), t,
+            'Q', orthogonalPoint(p2, t, .3, -4), p2);
     }
+
+    svg.path(petalPath).stroke('black').fill('none');
+
+    var gradient = svg.gradient('radial', function (stop) {
+        stop.at(0, '#E8E8E8');
+        stop.at(1, '#FFF');
+    });
+    var homeCircle = svg.circle(2 * r).stroke('black').fill(gradient).center(0, 0);
+
+    svg.circle(4).center(0, 0);
+    return svg;
 }
 
 function circleSliceCuts(cx, cy, r, n) {
@@ -257,5 +268,6 @@ function gridBoxes(svg, doMark) {
         }
     }
 
+    // TODO: Return an SVG.Set instead of an array.
     return polygons;
 }

@@ -32,7 +32,7 @@ function main() {
     var svg = SVG('drawing');
 
     if (!localStorage.hideBg) {
-        var gridFns = [patternGrid, patternSprinkle];
+        var gridFns = [patternGrid, patternSprinkle, patternCrowd];
         var boxes = gridBoxes(svg);
         for (var i = boxes.length; i-- > 0;) {
             var fence = boxes[i].fill('none').stroke('black');
@@ -40,11 +40,12 @@ function main() {
         }
     }
 
-    flower(svg.group(), 20, 36, 12).move(300, 200);
+    flower(svg.group(), 20, 36, 9).move(300, 200);
 }
 
 function flower(svg, r, outerRadius, sliceCount) {
     var cuts = circleSliceCuts(0, 0, r, sliceCount);
+
     var sideLength = 2 * r * Math.sin(Math.PI / sliceCount),
         factor = outerRadius / sideLength;
     var petalPath = ['M', cuts[0]];
@@ -77,6 +78,28 @@ function circleSliceCuts(cx, cy, r, n) {
     for (var i = 0; i < n; ++i)
         cuts.push([cx + r * Math.sin(i * t), cy - r * Math.cos(i * t)]);
     return cuts;
+}
+
+function patternCrowd(root, props) {
+    var fence = props.fence;
+    var pos = fence.rbox();
+    var pattern = root.group().move(pos.x, pos.y).add(fence.move(0, 0));
+    var crowd = pattern.group().clipWith(fence.clone());
+
+    var radius = 10;
+    for (var y = pos.height - radius; y >= 0; y -= 2 * radius - 5) {
+        for (var x = pos.width - radius; x >= 0; x -= 2 * radius - 5) {
+            crowd.circle(2 * radius + jitter(2)).stroke('black').fill('white')
+                .center(x + jitter(.2 * radius), y + jitter(.2 * radius));
+        }
+    }
+
+    return pattern;
+}
+
+function jitter(n) {
+    // A random integer in [-n, n].
+    return Math.floor(Math.random() * (2 * n + 1)) - n;
 }
 
 function orthogonalPoint(a, b, p, k) {

@@ -40,23 +40,46 @@ function main() {
         }
     }
 
-    flower(svg.group(), 20, 36, 9).move(300, 200);
+    flower(svg.group(), {
+        coreRadius: 20,
+        borderRadius: 60,
+        petalCount: 18,
+        petalSpan: 2
+    }).move(300, 200);
 }
 
-function flower(svg, r, outerRadius, sliceCount) {
-    var cuts = circleSliceCuts(0, 0, r, sliceCount);
+function flower(svg, props) {
+    var coreRadius = props.coreRadius,
+        outerRadius = props.borderRadius,
+        petalCount = props.petalCount,
+        petalSpan = props.petalSpan;
+    var cuts = circleSliceCuts(0, 0, coreRadius, petalCount);
 
-    var sideLength = 2 * r * Math.sin(Math.PI / sliceCount),
-        factor = outerRadius / sideLength;
+    var petalForm = 'taj';
+
+    var spanLength = 2 * coreRadius * Math.sin(Math.PI * petalSpan / petalCount),
+        factor = outerRadius / spanLength;
     var petalPath = ['M', cuts[0]];
     // Find target point for the petal to aim.
-    for (var i = 0; i < sliceCount; ++i) {
-        var p1 = cuts[i], p2 = cuts[(i + 1) % cuts.length];
+    for (var i = 0; i < petalCount; ++i) {
+        var p1 = cuts[i], p2 = cuts[(i + petalSpan) % cuts.length];
         var t = [factor * (p2[1] - p1[1]), factor * (p1[0] - p2[0])];
 
-        petalPath.push(
-            'Q', orthogonalPoint(p1, t, .3, 4), t,
-            'Q', orthogonalPoint(p2, t, .3, -4), p2);
+        if (petalForm === 'taj') {
+            petalPath.push('M', p1,
+                'Q', orthogonalPoint(p1, t, .3, 12), t,
+                'Q', orthogonalPoint(p2, t, .3, -12), p2);
+
+        } else if (petalForm === 'triangle') {
+            petalPath.push('M', p1, 'L', t, 'L', p2);
+
+        } else if (petalForm === 'ellipse') {
+            petalPath.push('M', p1,
+                'A', spanLength/2, outerRadius/2,
+                Math.atan2(p2[1] - p1[1], p2[0] - p1[0]) * 180/Math.PI, 1, 1, p2);
+
+        }
+
     }
 
     svg.path(petalPath).stroke('black').fill('none');
@@ -65,7 +88,7 @@ function flower(svg, r, outerRadius, sliceCount) {
         stop.at(0, '#E8E8E8');
         stop.at(1, '#FFF');
     });
-    var homeCircle = svg.circle(2 * r).stroke('black').fill(gradient).center(0, 0);
+    var homeCircle = svg.circle(2 * coreRadius).stroke('black').fill(gradient).center(0, 0);
 
     svg.circle(4).center(0, 0);
     return svg;

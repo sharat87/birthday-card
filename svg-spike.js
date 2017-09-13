@@ -42,53 +42,54 @@ function main() {
 
     flower(svg.group(), {
         coreRadius: 20,
-        borderRadius: 60,
-        petalCount: 18,
-        petalSpan: 2
+        petalLayers: [
+            {form: 'taj', radius: 60, count: 9, span: 3},
+            {form: 'ellipse', radius: 60, count: 9, span: 1}
+        ]
     }).move(300, 200);
 }
 
 function flower(svg, props) {
-    var coreRadius = props.coreRadius,
-        outerRadius = props.borderRadius,
-        petalCount = props.petalCount,
-        petalSpan = props.petalSpan;
-    var cuts = circleSliceCuts(0, 0, coreRadius, petalCount);
+    var coreRadius = props.coreRadius;
 
-    var petalForm = 'taj';
+    for (var p = 0; p < props.petalLayers.length; ++p) {
+        var petal = props.petalLayers[p];
 
-    var spanLength = 2 * coreRadius * Math.sin(Math.PI * petalSpan / petalCount),
-        factor = outerRadius / spanLength;
-    var petalPath = ['M', cuts[0]];
-    // Find target point for the petal to aim.
-    for (var i = 0; i < petalCount; ++i) {
-        var p1 = cuts[i], p2 = cuts[(i + petalSpan) % cuts.length];
-        var t = [factor * (p2[1] - p1[1]), factor * (p1[0] - p2[0])];
+        var cuts = circleSliceCuts(0, 0, coreRadius, petal.count);
+        var spanLength = 2 * coreRadius * Math.sin(Math.PI * petal.span / petal.count),
+            factor = petal.radius / spanLength;
+        var petalPath = ['M', cuts[0]];
 
-        if (petalForm === 'taj') {
-            petalPath.push('M', p1,
-                'Q', orthogonalPoint(p1, t, .3, 12), t,
-                'Q', orthogonalPoint(p2, t, .3, -12), p2);
+        // Find target point for the petal to aim.
+        for (var i = 0; i < petal.count; ++i) {
+            var p1 = cuts[i], p2 = cuts[(i + petal.span) % cuts.length];
+            var t = [factor * (p2[1] - p1[1]), factor * (p1[0] - p2[0])];
 
-        } else if (petalForm === 'triangle') {
-            petalPath.push('M', p1, 'L', t, 'L', p2);
+            if (petal.form === 'taj') {
+                petalPath.push('M', p1,
+                    'Q', orthogonalPoint(p1, t, .3, 12), t,
+                    'Q', orthogonalPoint(p2, t, .3, -12), p2);
 
-        } else if (petalForm === 'ellipse') {
-            petalPath.push('M', p1,
-                'A', spanLength/2, outerRadius/2,
-                Math.atan2(p2[1] - p1[1], p2[0] - p1[0]) * 180/Math.PI, 1, 1, p2);
+            } else if (petal.form === 'triangle') {
+                petalPath.push('M', p1, 'L', t, 'L', p2);
+
+            } else if (petal.form === 'ellipse') {
+                petalPath.push('M', p1,
+                    'A', spanLength / 2, petal.radius / 2,
+                    Math.atan2(p2[1] - p1[1], p2[0] - p1[0]) * 180 / Math.PI, 1, 1, p2);
+
+            }
 
         }
 
+        svg.path(petalPath).stroke('black').fill('none');
     }
-
-    svg.path(petalPath).stroke('black').fill('none');
 
     var gradient = svg.gradient('radial', function (stop) {
         stop.at(0, '#E8E8E8');
         stop.at(1, '#FFF');
     });
-    var homeCircle = svg.circle(2 * coreRadius).stroke('black').fill(gradient).center(0, 0);
+    svg.circle(2 * coreRadius).stroke('black').fill(gradient).center(0, 0);
 
     svg.circle(4).center(0, 0);
     return svg;

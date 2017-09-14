@@ -863,7 +863,7 @@ SVG.extend(SVG.PathArray, {
 
     }else{
       array = array.reduce(function(prev, curr){
-        return [].concat.call(prev, curr)
+        return [].concat.call(prev, curr instanceof SVG.Point ? [curr.x, curr.y] : curr)
       }, [])
     }
 
@@ -5549,4 +5549,4 @@ if (typeof window.CustomEvent !== 'function') {
 
 return SVG
 
-}));
+}));

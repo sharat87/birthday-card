@@ -40,13 +40,17 @@ function main() {
         }
     }
 
+    svg.circle(120).center(300, 200).fill('#cffcff');
+    var pullBack = Math.random();
+    var wide = Math.random() + .2;
     flower(svg.group(), {
         coreRadius: 20,
         petalLayers: [
-            {form: 'taj', radius: 60, count: 9, span: 3},
-            {form: 'ellipse', radius: 60, count: 9, span: 1}
+            // {form: 'triangle', radius: 60, count: 5, span: 1},
+            {form: 'polygon', radius: 60, count: 12, span: 1, pullBack: pullBack, wide: wide},
+            {form: 'u', radius: 60, count: 12, span: 1, pullBack: pullBack, wide: wide}
         ]
-    }).move(300, 200);
+    }).center(300, 200);
 }
 
 function flower(svg, props) {
@@ -56,14 +60,19 @@ function flower(svg, props) {
         var petal = props.petalLayers[p];
 
         var cuts = circleSliceCuts(0, 0, coreRadius, petal.count);
-        var spanLength = 2 * coreRadius * Math.sin(Math.PI * petal.span / petal.count),
+        var splitAngleHalf = Math.PI / petal.count,
+            spanAngleHalf = splitAngleHalf * petal.span,
+            spanLength = 2 * coreRadius * Math.sin(spanAngleHalf),
             factor = petal.radius / spanLength;
+
         var petalPath = ['M', cuts[0]];
 
         // Find target point for the petal to aim.
         for (var i = 0; i < petal.count; ++i) {
             var p1 = cuts[i], p2 = cuts[(i + petal.span) % cuts.length];
-            var t = [factor * (p2[1] - p1[1]), factor * (p1[0] - p2[0])];
+            var pm = [(p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2],
+                pd = [p2[0] - p1[0], p2[1] - p1[1]];
+            var t = [factor * pd[1], factor * -pd[0]];
 
             if (petal.form === 'taj') {
                 petalPath.push('M', p1,
@@ -78,6 +87,34 @@ function flower(svg, props) {
                     'A', spanLength / 2, petal.radius / 2,
                     Math.atan2(p2[1] - p1[1], p2[0] - p1[0]) * 180 / Math.PI, 1, 1, p2);
 
+            } else if (petal.form === 'polygon' || petal.form === 'u') {
+                var dx = t[0] - pm[0], dy = t[1] - pm[1];
+                dx *= petal.pullBack; // pullBack: 0 - Triangle, 1 - Rectangle.
+                dy *= petal.pullBack;
+
+                var q1 = [p1[0] + dx, p1[1] + dy];
+                var q2 = [p2[0] + dx, p2[1] + dy];
+                var extraX = pd[0] * petal.wide;
+                var extraY = pd[1] * petal.wide;
+                q1[0] -= extraX;
+                q1[1] -= extraY;
+                q2[0] += extraX;
+                q2[1] += extraY;
+
+                if (petal.form === 'polygon') {
+                    petalPath.push('M', p1,
+                        'L', q1,
+                        'L', new SVG.Point(t),
+                        'L', q2,
+                        'L', p2);
+
+                } else {
+                    petalPath.push('M', p1,
+                        'Q', q1, t,
+                        'Q', q2, p2);
+
+                }
+
             }
 
         }
@@ -89,9 +126,13 @@ function flower(svg, props) {
         stop.at(0, '#E8E8E8');
         stop.at(1, '#FFF');
     });
-    svg.circle(2 * coreRadius).stroke('black').fill(gradient).center(0, 0);
+    svg.circle(2 * coreRadius).stroke('black').fill(gradient);
+    svg.circle(4);
+    window.svg = svg;
 
-    svg.circle(4).center(0, 0);
+    var box = svg.rbox();
+    svg.set(svg.children()).center(box.width / 2, box.height / 2);
+
     return svg;
 }
 

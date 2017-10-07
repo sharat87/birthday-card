@@ -40,85 +40,68 @@ function main() {
         }
     }
 
-    svg.circle(120).center(300, 200).fill('#cffcff');
     var pullBack = Math.random();
-    var wide = Math.random() + .2;
+    var wide = 1.2 * Math.random();
+    var rad = 0;
     flower(svg.group(), {
-        coreRadius: 20,
+        coreRadius: (rad += 20),
         petalLayers: [
             // {form: 'triangle', radius: 60, count: 5, span: 1},
-            {form: 'polygon', radius: 60, count: 12, span: 1, pullBack: pullBack, wide: wide},
-            {form: 'u', radius: 60, count: 12, span: 1, pullBack: pullBack, wide: wide}
+            // {form: 'polygon', radius: 60, count: 12, span: 1, pullBack: pullBack, wide: wide},
+            {form: 'u', radius: (rad += 40), count: 12, span: 2, pullBack: pullBack, wide: wide}
+        ],
+        rings: [
+            {radius: (rad += 15), width: 20}
         ]
     }).center(300, 200);
+    svg.circle(2 * rad).center(300, 200).fill('rgba(0, 0, 0, .1)').back();
 }
 
 function flower(svg, props) {
     var coreRadius = props.coreRadius;
 
-    for (var p = 0; p < props.petalLayers.length; ++p) {
-        var petal = props.petalLayers[p];
+    for (var r = 0; r < props.rings.length; ++r) {
+        var ring = props.rings[r];
+        svg.circle(2 * ring.radius).center(0, 0).fill('none').stroke('black');
+        svg.circle(2 * (ring.radius + ring.width)).center(0, 0).fill('none').stroke('black');
+        var texture = svg.group(), style = 'ring';
 
-        var cuts = circleSliceCuts(0, 0, coreRadius, petal.count);
-        var splitAngleHalf = Math.PI / petal.count,
-            spanAngleHalf = splitAngleHalf * petal.span,
-            spanLength = 2 * coreRadius * Math.sin(spanAngleHalf),
-            factor = petal.radius / spanLength;
+        var unit = texture.symbol();
+        unit.viewbox(-ring.width/2, -ring.width/2, ring.width, ring.width);
 
-        var petalPath = ['M', cuts[0]];
+        if (style === 'ring') {
+            unit.circle('60%').center(0, 0);
 
-        // Find target point for the petal to aim.
-        for (var i = 0; i < petal.count; ++i) {
-            var p1 = cuts[i], p2 = cuts[(i + petal.span) % cuts.length];
-            var pm = [(p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2],
-                pd = [p2[0] - p1[0], p2[1] - p1[1]];
-            var t = [factor * pd[1], factor * -pd[0]];
+        } else if (style === 'square') {
+            unit.rect(5, 5).center(0, 0);
 
-            if (petal.form === 'taj') {
-                petalPath.push('M', p1,
-                    'Q', orthogonalPoint(p1, t, .3, 12), t,
-                    'Q', orthogonalPoint(p2, t, .3, -12), p2);
+        } else if (style.match(/^tri\b/)) {
+            unit.polygon('0,-3 -2.5,1.2 2.5,1.2').center(0, 0);
+            if (style === 'tri-inv')
+                unit.last().flip('y');
 
-            } else if (petal.form === 'triangle') {
-                petalPath.push('M', p1, 'L', t, 'L', p2);
-
-            } else if (petal.form === 'ellipse') {
-                petalPath.push('M', p1,
-                    'A', spanLength / 2, petal.radius / 2,
-                    Math.atan2(p2[1] - p1[1], p2[0] - p1[0]) * 180 / Math.PI, 1, 1, p2);
-
-            } else if (petal.form === 'polygon' || petal.form === 'u') {
-                var dx = t[0] - pm[0], dy = t[1] - pm[1];
-                dx *= petal.pullBack; // pullBack: 0 - Triangle, 1 - Rectangle.
-                dy *= petal.pullBack;
-
-                var q1 = [p1[0] + dx, p1[1] + dy];
-                var q2 = [p2[0] + dx, p2[1] + dy];
-                var extraX = pd[0] * petal.wide;
-                var extraY = pd[1] * petal.wide;
-                q1[0] -= extraX;
-                q1[1] -= extraY;
-                q2[0] += extraX;
-                q2[1] += extraY;
-
-                if (petal.form === 'polygon') {
-                    petalPath.push('M', p1,
-                        'L', q1,
-                        'L', new SVG.Point(t),
-                        'L', q2,
-                        'L', p2);
-
-                } else {
-                    petalPath.push('M', p1,
-                        'Q', q1, t,
-                        'Q', q2, p2);
-
-                }
-
-            }
+        } else if (style === 'stand') {
+            unit.line(0, 0, 0, -5);
+            unit.line(0, 0, -5, 5);
+            unit.line(0, 0, 5, 5);
 
         }
 
+        var bubbleCount = Math.ceil(2 * Math.PI * ring.radius / ring.width);
+        var interBubbleAngle = 2 * Math.PI / bubbleCount;
+        var deltaAngleDeg = interBubbleAngle * 180 / Math.PI;
+        var rotateMatrix = new SVG.Matrix();
+        var c = texture.point(0, ring.radius + ring.width / 2);
+        for (var s = 0; s < bubbleCount; ++s) {
+            texture.use(unit).width(ring.width).height(ring.width).center(c.x, c.y).transform(rotateMatrix);
+            rotateMatrix = rotateMatrix.rotate(deltaAngleDeg, 0, 0);
+        }
+
+        texture.fill('none').stroke('black');
+    }
+
+    for (var p = 0; p < props.petalLayers.length; ++p) {
+        var petalPath = drawPetals(coreRadius, props.petalLayers[p]);
         svg.path(petalPath).stroke('black').fill('none');
     }
 
@@ -126,14 +109,77 @@ function flower(svg, props) {
         stop.at(0, '#E8E8E8');
         stop.at(1, '#FFF');
     });
-    svg.circle(2 * coreRadius).stroke('black').fill(gradient);
-    svg.circle(4);
-    window.svg = svg;
+    svg.circle(2 * coreRadius).stroke('black').fill(gradient).center(0, 0);
+    svg.circle(4).center(0, 0);
 
     var box = svg.rbox();
-    svg.set(svg.children()).center(box.width / 2, box.height / 2);
+    svg.set(svg.children()).dmove(box.width / 2, box.height / 2);
 
     return svg;
+}
+
+function drawPetals(coreRadius, petal, factor, spanLength) {
+    var cuts = circleSliceCuts(0, 0, coreRadius, petal.count);
+    var petalPath = ['M', cuts[0]];
+
+    var splitAngleHalf = Math.PI / petal.count,
+        spanAngleHalf = splitAngleHalf * petal.span,
+        spanLength = 2 * coreRadius * Math.sin(spanAngleHalf),
+        factor = petal.radius / spanLength;
+
+    // Find target point for the petal to aim.
+    for (var i = 0; i < petal.count; ++i) {
+        var p1 = cuts[i], p2 = cuts[(i + petal.span) % cuts.length];
+        var pm = [(p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2],
+            pd = [p2[0] - p1[0], p2[1] - p1[1]];
+        var t = [factor * pd[1], factor * -pd[0]];
+
+        if (petal.form === 'taj') {
+            petalPath.push('M', p1,
+                'Q', orthogonalPoint(p1, t, .3, 12), t,
+                'Q', orthogonalPoint(p2, t, .3, -12), p2);
+
+        } else if (petal.form === 'triangle') {
+            petalPath.push('M', p1, 'L', t, 'L', p2);
+
+        } else if (petal.form === 'ellipse') {
+            petalPath.push('M', p1,
+                'A', spanLength / 2, petal.radius / 2,
+                Math.atan2(p2[1] - p1[1], p2[0] - p1[0]) * 180 / Math.PI, 1, 1, p2);
+
+        } else if (petal.form === 'polygon' || petal.form === 'u') {
+            var dx = t[0] - pm[0], dy = t[1] - pm[1];
+            dx *= petal.pullBack; // pullBack: 0 - Triangle, 1 - Rectangle.
+            dy *= petal.pullBack;
+
+            var q1 = [p1[0] + dx, p1[1] + dy];
+            var q2 = [p2[0] + dx, p2[1] + dy];
+            var extraX = pd[0] * petal.wide;
+            var extraY = pd[1] * petal.wide;
+            q1[0] -= extraX;
+            q1[1] -= extraY;
+            q2[0] += extraX;
+            q2[1] += extraY;
+
+            if (petal.form === 'polygon') {
+                petalPath.push('M', p1,
+                    'L', q1,
+                    'L', new SVG.Point(t),
+                    'L', q2,
+                    'L', p2);
+
+            } else {
+                petalPath.push('M', p1,
+                    'Q', q1, t,
+                    'Q', q2, p2);
+
+            }
+
+        }
+
+    }
+
+    return petalPath;
 }
 
 function circleSliceCuts(cx, cy, r, n) {

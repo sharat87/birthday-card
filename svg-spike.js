@@ -42,28 +42,44 @@ function main() {
 
     var pullBack = Math.random();
     var wide = 1.2 * Math.random();
-    var rad = 0;
     flower(svg.group(), {
-        coreRadius: (rad += 20),
+        coreRadius: 20,
         petalLayers: [
             // {form: 'triangle', radius: 60, count: 5, span: 1},
             // {form: 'polygon', radius: 60, count: 12, span: 1, pullBack: pullBack, wide: wide},
-            {form: 'u', radius: (rad += 40), count: 12, span: 2, pullBack: pullBack, wide: wide}
+            {form: 'u', length: 40, count: 12, span: 2, pullBack: pullBack, wide: wide}
         ],
         rings: [
-            {radius: (rad += 15), width: 20}
+            {padding: 15, width: 15}
         ]
     }).center(300, 200);
-    svg.circle(2 * rad).center(300, 200).fill('rgba(0, 0, 0, .1)').back();
+    // svg.circle(2 * rad).center(300, 200).fill('rgba(0, 0, 0, .1)').back();
 }
 
 function flower(svg, props) {
     var coreRadius = props.coreRadius;
 
+    // Central dot.
+    svg.circle(4).center(0, 0);
+
+    // The radius to which drawing has been done.
+    var filledRadius = coreRadius;
+
+    // Draw the petal layers.
+    for (var p = 0; p < props.petalLayers.length; ++p) {
+        var petal = props.petalLayers[p];
+        svg.circle(2 * filledRadius).stroke('black').fill('none').center(0, 0).back();
+        var petalPath = drawPetals(filledRadius, petal);
+        svg.path(petalPath).stroke('black').fill('none');
+        filledRadius += petal.length + (petal.margin || 0);
+    }
+
+    // Draw the rings.
     for (var r = 0; r < props.rings.length; ++r) {
         var ring = props.rings[r];
-        svg.circle(2 * ring.radius).center(0, 0).fill('none').stroke('black');
-        svg.circle(2 * (ring.radius + ring.width)).center(0, 0).fill('none').stroke('black');
+        filledRadius += ring.padding;
+        svg.circle(2 * filledRadius).center(0, 0).fill('none').stroke('black');
+        svg.circle(2 * (filledRadius + ring.width)).center(0, 0).fill('none').stroke('black');
         var texture = svg.group(), style = 'ring';
 
         var unit = texture.symbol();
@@ -87,45 +103,45 @@ function flower(svg, props) {
 
         }
 
-        var bubbleCount = Math.ceil(2 * Math.PI * ring.radius / ring.width);
+        var bubbleCount = Math.ceil(2 * Math.PI * filledRadius / ring.width);
         var interBubbleAngle = 2 * Math.PI / bubbleCount;
         var deltaAngleDeg = interBubbleAngle * 180 / Math.PI;
         var rotateMatrix = new SVG.Matrix();
-        var c = texture.point(0, ring.radius + ring.width / 2);
+        var c = texture.point(0, filledRadius + ring.width / 2);
         for (var s = 0; s < bubbleCount; ++s) {
             texture.use(unit).width(ring.width).height(ring.width).center(c.x, c.y).transform(rotateMatrix);
             rotateMatrix = rotateMatrix.rotate(deltaAngleDeg, 0, 0);
         }
 
         texture.fill('none').stroke('black');
+        filledRadius += ring.width;
     }
 
-    for (var p = 0; p < props.petalLayers.length; ++p) {
-        var petalPath = drawPetals(coreRadius, props.petalLayers[p]);
-        svg.path(petalPath).stroke('black').fill('none');
-    }
-
+    // The background.
     var gradient = svg.gradient('radial', function (stop) {
-        stop.at(0, '#E8E8E8');
-        stop.at(1, '#FFF');
+        var dark = Math.floor(Math.random() * 30) + 210;
+        stop.at(0, '#FFF');
+        stop.at(1, 'rgb(' + [dark, dark, dark].join(',') + ');');
     });
-    svg.circle(2 * coreRadius).stroke('black').fill(gradient).center(0, 0);
-    svg.circle(4).center(0, 0);
+    svg.circle(2 * filledRadius).center(0, 0).fill(gradient).back();
 
+    // Move the folower to have it's center at the origin.
     var box = svg.rbox();
     svg.set(svg.children()).dmove(box.width / 2, box.height / 2);
 
+    // Finished.
     return svg;
 }
 
-function drawPetals(coreRadius, petal, factor, spanLength) {
+function drawPetals(coreRadius, petal) {
     var cuts = circleSliceCuts(0, 0, coreRadius, petal.count);
     var petalPath = ['M', cuts[0]];
+    var outerRadius = coreRadius + petal.length;
 
     var splitAngleHalf = Math.PI / petal.count,
         spanAngleHalf = splitAngleHalf * petal.span,
         spanLength = 2 * coreRadius * Math.sin(spanAngleHalf),
-        factor = petal.radius / spanLength;
+        factor = outerRadius / spanLength;
 
     // Find target point for the petal to aim.
     for (var i = 0; i < petal.count; ++i) {
@@ -144,7 +160,7 @@ function drawPetals(coreRadius, petal, factor, spanLength) {
 
         } else if (petal.form === 'ellipse') {
             petalPath.push('M', p1,
-                'A', spanLength / 2, petal.radius / 2,
+                'A', spanLength / 2, outerRadius / 2,
                 Math.atan2(p2[1] - p1[1], p2[0] - p1[0]) * 180 / Math.PI, 1, 1, p2);
 
         } else if (petal.form === 'polygon' || petal.form === 'u') {

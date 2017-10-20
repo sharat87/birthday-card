@@ -42,15 +42,34 @@ function main() {
 
     var pullBack = Math.random();
     var wide = 1.2 * Math.random();
+    var coreRadius = 20;
     flower(svg.group(), {
-        coreRadius: 20,
-        petalLayers: [
-            // {form: 'triangle', radius: 60, count: 5, span: 1},
-            // {form: 'polygon', radius: 60, count: 12, span: 1, pullBack: pullBack, wide: wide},
-            {form: 'u', length: 40, count: 12, span: 2, pullBack: pullBack, wide: wide}
-        ],
+        coreRadius: coreRadius,
         rings: [
-            {padding: 15, width: 15}
+            {
+                type: 'petal',
+                form: 'u',
+                length: 20,
+                count: 12,
+                span: 1,
+                pullBack: pullBack,
+                wide: wide
+            },
+            {
+                type: 'ring',
+                style: 'ring',
+                padding: 10,
+                width: 15
+            },
+            {
+                type: 'petal',
+                form: 'u',
+                length: Math.floor(rand(.75, 5) * coreRadius),
+                count: Math.floor(rand(5, 20)),
+                span: Math.floor(rand(1, 5)),
+                pullBack: pullBack,
+                wide: wide
+            },
         ]
     }).center(300, 200);
     // svg.circle(2 * rad).center(300, 200).fill('rgba(0, 0, 0, .1)').back();
@@ -65,56 +84,58 @@ function flower(svg, props) {
     // The radius to which drawing has been done.
     var filledRadius = coreRadius;
 
-    // Draw the petal layers.
-    for (var p = 0; p < props.petalLayers.length; ++p) {
-        var petal = props.petalLayers[p];
-        svg.circle(2 * filledRadius).stroke('black').fill('none').center(0, 0).back();
-        var petalPath = drawPetals(filledRadius, petal);
-        svg.path(petalPath).stroke('black').fill('none');
-        filledRadius += petal.length + (petal.margin || 0);
-    }
-
     // Draw the rings.
     for (var r = 0; r < props.rings.length; ++r) {
         var ring = props.rings[r];
-        filledRadius += ring.padding;
-        svg.circle(2 * filledRadius).center(0, 0).fill('none').stroke('black');
-        svg.circle(2 * (filledRadius + ring.width)).center(0, 0).fill('none').stroke('black');
-        var texture = svg.group(), style = 'ring';
+        if (ring.type === 'petal') {
+            var petal = ring;
+            console.log('Drawing petal', petal);
+            filledRadius += petal.padding || 0;
+            svg.circle(2 * filledRadius).center(0, 0).stroke('black').fill('none');
+            var petalPath = drawPetals(filledRadius, petal);
+            svg.path(petalPath).stroke('black').fill('none');
+            filledRadius += petal.length + (petal.margin || 0);
 
-        var unit = texture.symbol();
-        unit.viewbox(-ring.width/2, -ring.width/2, ring.width, ring.width);
+        } else if (ring.type === 'ring') {
+            filledRadius += ring.padding || 0;
+            svg.circle(2 * filledRadius).center(0, 0).stroke('black').fill('none');
+            svg.circle(2 * (filledRadius + ring.width)).center(0, 0).fill('none').stroke('black');
+            var texture = svg.group(), style = ring.style;
 
-        if (style === 'ring') {
-            unit.circle('60%').center(0, 0);
+            var unit = texture.symbol();
+            unit.viewbox(-ring.width / 2, -ring.width / 2, ring.width, ring.width);
 
-        } else if (style === 'square') {
-            unit.rect(5, 5).center(0, 0);
+            if (style === 'ring') {
+                unit.circle('60%').center(0, 0);
 
-        } else if (style.match(/^tri\b/)) {
-            unit.polygon('0,-3 -2.5,1.2 2.5,1.2').center(0, 0);
-            if (style === 'tri-inv')
-                unit.last().flip('y');
+            } else if (style === 'square') {
+                unit.rect(5, 5).center(0, 0);
 
-        } else if (style === 'stand') {
-            unit.line(0, 0, 0, -5);
-            unit.line(0, 0, -5, 5);
-            unit.line(0, 0, 5, 5);
+            } else if (style.match(/^tri\b/)) {
+                unit.polygon('0,-3 -2.5,1.2 2.5,1.2').center(0, 0);
+                if (style === 'tri-inv')
+                    unit.last().flip('y');
 
+            } else if (style === 'stand') {
+                unit.line(0, 0, 0, -5);
+                unit.line(0, 0, -5, 5);
+                unit.line(0, 0, 5, 5);
+
+            }
+
+            var bubbleCount = Math.ceil(2 * Math.PI * filledRadius / ring.width);
+            var interBubbleAngle = 2 * Math.PI / bubbleCount;
+            var deltaAngleDeg = interBubbleAngle * 180 / Math.PI;
+            var rotateMatrix = new SVG.Matrix();
+            var c = texture.point(0, filledRadius + ring.width / 2);
+            for (var s = 0; s < bubbleCount; ++s) {
+                texture.use(unit).width(ring.width).height(ring.width).center(c.x, c.y).transform(rotateMatrix);
+                rotateMatrix = rotateMatrix.rotate(deltaAngleDeg, 0, 0);
+            }
+
+            texture.fill('none').stroke('black');
+            filledRadius += ring.width;
         }
-
-        var bubbleCount = Math.ceil(2 * Math.PI * filledRadius / ring.width);
-        var interBubbleAngle = 2 * Math.PI / bubbleCount;
-        var deltaAngleDeg = interBubbleAngle * 180 / Math.PI;
-        var rotateMatrix = new SVG.Matrix();
-        var c = texture.point(0, filledRadius + ring.width / 2);
-        for (var s = 0; s < bubbleCount; ++s) {
-            texture.use(unit).width(ring.width).height(ring.width).center(c.x, c.y).transform(rotateMatrix);
-            rotateMatrix = rotateMatrix.rotate(deltaAngleDeg, 0, 0);
-        }
-
-        texture.fill('none').stroke('black');
-        filledRadius += ring.width;
     }
 
     // The background.
@@ -123,7 +144,7 @@ function flower(svg, props) {
         stop.at(0, '#FFF');
         stop.at(1, 'rgb(' + [dark, dark, dark].join(',') + ');');
     });
-    svg.circle(2 * filledRadius).center(0, 0).fill(gradient).back();
+    svg.circle(2 * filledRadius).center(0, 0).fill(gradient).stroke(ring.type === 'ring' ? 'none' : 'black').back();
 
     // Move the folower to have it's center at the origin.
     var box = svg.rbox();
@@ -420,4 +441,8 @@ function gridBoxes(svg, doMark) {
 
     // TODO: Return an SVG.Set instead of an array.
     return polygons;
+}
+
+function rand(min, max) {
+    return min + Math.random() * (max - min);
 }

@@ -2,10 +2,32 @@
 <meta charset="UTF-8">
 <title>Birthday Card</title>
 <style>
-    html, body, #drawing { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
+    html, body, #drawing {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+    }
+
+    #greeting {
+        font-family: Sacramento, cursive;
+        font-width: bold;
+        position: fixed;
+        font-size: 6em;
+        top: 20%;
+        width: 100%;
+        text-align: center;
+        text-shadow: -1px -1px 0 #F09,
+            1px -1px 0 #F09,
+            1px 1px 0 #F09,
+            -1px 1px 0 #F09;
+        color: white;
+    }
 </style>
+<link href="https://fonts.googleapis.com/css?family=Sacramento" rel="stylesheet">
 <div id="drawing"></div>
+<div id="greeting">Happy Birthday V!</div>
 <!--<script src="https://cdnjs.cloudflare.com/ajax/libs/svg.js/2.6.3/svg.min.js"></script>-->
 <script src="svg.js"></script>
-<!--<script src="comic.js"></script>-->
 <script src="svg-spike.js"></script>

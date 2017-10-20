@@ -42,39 +42,50 @@ function main() {
 
     var width = svg.rbox().width, height = svg.rbox().height,
         minCoreRadius = 10, maxCoreRadius = 40,
-        flowerCount = 3 * Math.sqrt(width * height) / (minCoreRadius + maxCoreRadius);
+        flowerCount = 5 * Math.sqrt(width * height) / (minCoreRadius + maxCoreRadius);
     console.log('Drawing', flowerCount, 'flowers');
-    for (var r = flowerCount; r-- > 0;) {
-        var coreRadius = Math.floor(rand(minCoreRadius, maxCoreRadius));
+    for (var r = flowerCount; r > 0;) {
+        var rings = [];
+
+        if (Math.random() < .3)
+            rings.push({
+                type: 'petal',
+                length: Math.floor(rand(minCoreRadius, maxCoreRadius)),
+                pullBack: Math.random(),
+                wide: .5 * Math.random() - .1,
+                overdraw: true
+            });
+
+        --r;
+        rings.push({
+            type: 'petal',
+            length: Math.floor(rand(minCoreRadius, maxCoreRadius)),
+            pullBack: Math.random(),
+            wide: .5 * Math.random() - .1
+        });
+
+        if (Math.random() < .8) {
+            rings.push({
+                type: 'ring',
+                padding: 10,
+                width: 15
+            });
+
+            if (Math.random() < .5) {
+                --r;
+                rings.push({
+                    type: 'petal',
+                    length: Math.floor(rand(.75, 5) * Math.floor(rand(minCoreRadius, maxCoreRadius))),
+                    pullBack: Math.random(),
+                    wide: .5 * Math.random() - .1
+                });
+            }
+        }
+
         flower(svg.group(), {
-            coreRadius: coreRadius,
-            rings: [
-                {
-                    type: 'petal',
-                    form: 'u',
-                    length: 20,
-                    count: 12,
-                    span: 1,
-                    pullBack: Math.random(),
-                    wide: 1.2 * Math.random()
-                },
-                {
-                    type: 'ring',
-                    style: 'ring',
-                    padding: 10,
-                    width: 15
-                },
-                {
-                    type: 'petal',
-                    form: 'u',
-                    length: Math.floor(rand(.75, 5) * coreRadius),
-                    count: Math.floor(rand(5, 20)),
-                    span: Math.floor(rand(1, 5)),
-                    pullBack: Math.random(),
-                    wide: 1.2 * Math.random()
-                },
-            ]
-        }).center(Math.floor(rand(10, width - 10)), Math.floor(rand(10, height - 10))).stroke('#555');
+            coreRadius: Math.floor(rand(minCoreRadius, maxCoreRadius)),
+            rings: rings
+        }).center(Math.floor(rand(10, width - 10)), Math.floor(rand(10, height - 10))).stroke('#666');
     }
 }
 
@@ -97,29 +108,30 @@ function flower(svg, props) {
             svg.circle(2 * filledRadius).center(0, 0).fill('none');
             var petalPath = drawPetals(filledRadius, petal);
             svg.path(petalPath).fill('none');
-            filledRadius += petal.length + (petal.margin || 0);
+            if (!petal.overdraw)
+                filledRadius += petal.length + (petal.margin || 0);
 
         } else if (ring.type === 'ring') {
             filledRadius += ring.padding || 0;
             svg.circle(2 * filledRadius).center(0, 0).fill('none');
             svg.circle(2 * (filledRadius + ring.width)).center(0, 0).fill('none');
-            var texture = svg.group(), style = ring.style;
+            var texture = svg.group(), style = ring.style || Math.random() * 5;
 
             var unit = texture.symbol();
             unit.viewbox(-ring.width / 2, -ring.width / 2, ring.width, ring.width);
 
-            if (style === 'ring') {
+            if (style < 1) {
                 unit.circle('60%').center(0, 0);
 
-            } else if (style === 'square') {
+            } else if (style < 2) {
                 unit.rect(5, 5).center(0, 0);
 
-            } else if (style.match(/^tri\b/)) {
+            } else if (style < 4) {
                 unit.polygon('0,-3 -2.5,1.2 2.5,1.2').center(0, 0);
-                if (style === 'tri-inv')
+                if (style < 3)
                     unit.last().flip('y');
 
-            } else if (style === 'stand') {
+            } else if (style < 5) {
                 unit.line(0, 0, 0, -5);
                 unit.line(0, 0, -5, 5);
                 unit.line(0, 0, 5, 5);
@@ -160,36 +172,40 @@ function flower(svg, props) {
 }
 
 function drawPetals(coreRadius, petal) {
-    var cuts = circleSliceCuts(0, 0, coreRadius, petal.count);
+    var petalCount = petal.count || Math.floor(rand(5, 20));
+    var petalSpan = petal.span || Math.floor(rand(1, Math.floor(petalCount / 2)));
+    var form = petal.form || Math.random() * 5;
+
+    var cuts = circleSliceCuts(0, 0, coreRadius, petalCount);
     var petalPath = ['M', cuts[0]];
     var outerRadius = coreRadius + petal.length;
 
-    var splitAngleHalf = Math.PI / petal.count,
-        spanAngleHalf = splitAngleHalf * petal.span,
+    var splitAngleHalf = Math.PI / petalCount,
+        spanAngleHalf = splitAngleHalf * petalSpan,
         spanLength = 2 * coreRadius * Math.sin(spanAngleHalf),
         factor = outerRadius / spanLength;
 
     // Find target point for the petal to aim.
-    for (var i = 0; i < petal.count; ++i) {
-        var p1 = cuts[i], p2 = cuts[(i + petal.span) % cuts.length];
+    for (var i = 0; i < petalCount; ++i) {
+        var p1 = cuts[i], p2 = cuts[(i + petalSpan) % cuts.length];
         var pm = [(p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2],
             pd = [p2[0] - p1[0], p2[1] - p1[1]];
         var t = [factor * pd[1], factor * -pd[0]];
 
-        if (petal.form === 'taj') {
+        if (form < 1) {
             petalPath.push('M', p1,
                 'Q', orthogonalPoint(p1, t, .3, 12), t,
                 'Q', orthogonalPoint(p2, t, .3, -12), p2);
 
-        } else if (petal.form === 'triangle') {
+        } else if (form < 2) {
             petalPath.push('M', p1, 'L', t, 'L', p2);
 
-        } else if (petal.form === 'ellipse') {
+        } else if (form < 3) {
             petalPath.push('M', p1,
                 'A', spanLength / 2, outerRadius / 2,
                 Math.atan2(p2[1] - p1[1], p2[0] - p1[0]) * 180 / Math.PI, 1, 1, p2);
 
-        } else if (petal.form === 'polygon' || petal.form === 'u') {
+        } else if (form < 5) {
             var dx = t[0] - pm[0], dy = t[1] - pm[1];
             dx *= petal.pullBack; // pullBack: 0 - Triangle, 1 - Rectangle.
             dy *= petal.pullBack;
@@ -203,7 +219,7 @@ function drawPetals(coreRadius, petal) {
             q2[0] += extraX;
             q2[1] += extraY;
 
-            if (petal.form === 'polygon') {
+            if (form < 4) {
                 petalPath.push('M', p1,
                     'L', q1,
                     'L', new SVG.Point(t),
